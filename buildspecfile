@@ -1,0 +1,39 @@
+version: 0.2
+
+pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 274872237018.dkr.ecr.us-east-1.amazonaws.com
+      - REPOSITORY_URI= 274872237018.dkr.ecr.us-east-1.amazonaws.com/nginx-repo-app
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+env:
+  variables:
+    AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+    AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+    IMAGE_TAG: "latest" # Ensure this variable is set or passed during the build
+
+phases:
+  install:
+    commands:
+      - echo Installing NGINX
+      - sudo apt-get update
+      - sudo apt-get install nginx -y  
+  build:
+    commands:
+      - echo Building static site...
+      - cp index.html /var/www/html
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 274872237018.dkr.ecr.us-east-1.amazonaws.com
+      - docker build -t nginx-repo-app .
+      - docker tag nginx-repo-app:latest 274872237018.dkr.ecr.us-east-1.amazonaws.com/nginx-repo-app:latest
+      - docker push 274872237018.dkr.ecr.us-east-1.amazonaws.com/nginx-repo-app:latest
+artifacts:
+  files:
+    - /var/www/html/index.html
+
+cache:
+  paths:
+    - './node_modules/**/*'
